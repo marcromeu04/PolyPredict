@@ -11,8 +11,10 @@ tensorflow>=2.13.0
 # API & Data Collection
 requests>=2.31.0
 websockets>=11.0
+aiohttp>=3.8.0
 py-clob-client>=0.14.0
 web3>=6.0.0
+gql>=3.4.0  # GraphQL client for The Graph
 
 # Data Visualization
 matplotlib>=3.7.0
@@ -28,7 +30,7 @@ ipywidgets>=8.0.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
 tqdm>=4.65.0
-aiohttp>=3.8.0
+pyyaml>=6.0  # For config files
 
 # Time series analysis
 statsmodels>=0.14.0
@@ -44,3 +46,8 @@ pytest-asyncio>=0.21.0
 
 # Database (optional for storing results)
 sqlalchemy>=2.0.0
+
+# Optional NLP for news analysis
+# Uncomment if you want advanced keyword extraction
+# spacy>=3.6.0
+# nltk>=3.8.0

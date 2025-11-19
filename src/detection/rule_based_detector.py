@@ -89,6 +89,11 @@ class RuleBasedDetector:
             for _, trade in large_trades.iterrows():
                 minutes_before = (event_time - trade['timestamp']).total_seconds() / 60
 
+                # Calculate risk score (higher size relative to threshold = higher score)
+                size_ratio = trade['size'] / threshold if threshold > 0 else 1.0
+                time_factor = 1.5 if minutes_before < 15 else 1.0
+                risk_score = min(1.0, (size_ratio - 1.0) * 0.5 * time_factor)
+
                 suspicious_trades.append({
                     'type': 'timing_anomaly',
                     'market_id': market_id,
@@ -98,7 +103,7 @@ class RuleBasedDetector:
                     'size': trade.get('size', 0),
                     'avg_normal_size': avg_normal_size,
                     'severity': 'high' if minutes_before < 15 else 'medium',
-                    'score': min(1.0, (threshold / trade['size']) * 0.8)
+                    'score': max(0.1, risk_score)  # Minimum score 0.1
                 })
 
         return suspicious_trades
@@ -123,16 +128,19 @@ class RuleBasedDetector:
         if trades_df.empty or 'timestamp' not in trades_df.columns:
             return []
 
+        # Make a copy to avoid modifying original
+        df = trades_df.copy()
+
         # Ensure timestamp is datetime
-        if not pd.api.types.is_datetime64_any_dtype(trades_df['timestamp']):
-            trades_df['timestamp'] = pd.to_datetime(trades_df['timestamp'])
+        if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         # Sort by timestamp
-        trades_df = trades_df.sort_values('timestamp')
+        df = df.sort_values('timestamp')
 
         # Resample to get volume per minute
-        trades_df.set_index('timestamp', inplace=True)
-        volume_per_min = trades_df['size'].resample('1T').sum()
+        df = df.set_index('timestamp')
+        volume_per_min = df['size'].resample('1T').sum()
 
         # Calculate rolling average and std
         rolling_avg = volume_per_min.rolling(

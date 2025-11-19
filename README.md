@@ -1,8 +1,11 @@
-# PolyPredict - Polymarket Insider Trading Tracker
+# PolyPredict - Advanced Insider Trading Detection for Polymarket
+
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-PolyPredict is an advanced insider trading detection system for Polymarket prediction markets. It combines rule-based detection with machine learning to identify suspicious trading patterns in real-time.
+**PolyPredict** is a comprehensive insider trading detection system for Polymarket prediction markets. It combines rule-based heuristics with state-of-the-art machine learning models and integrates **5 major data sources** to identify suspicious trading patterns in real-time.
 
 ## Features
 
@@ -40,12 +43,41 @@ PolyPredict/
 └── config/                  # Configuration files
 ```
 
-## Data Sources
+## 📡 Data Sources (5 Integrated APIs)
 
-- **Polymarket CLOB API** - Order book & trade data
-- **Gamma API** - Market metadata
-- **Data API** - Position tracking
-- **Bitquery GraphQL** - On-chain analysis
+PolyPredict aggregates data from multiple sources for comprehensive analysis:
+
+1. **Polymarket Official APIs**
+   - CLOB API - Real-time order book & trades
+   - Gamma API - Market information
+   - Data API - User positions
+   - WebSocket - Live streaming
+
+2. **The Graph Subgraph**
+   - GraphQL API for on-chain indexed data
+   - Historical trades & volume
+   - Liquidity tracking
+   - 100k free queries/month
+
+3. **Polygon Blockchain**
+   - Direct on-chain data via PolygonScan API
+   - Contract interaction analysis
+   - Transaction verification
+   - Gas usage patterns
+
+4. **News & Events APIs**
+   - NewsAPI for market-related news
+   - Twitter/X API for social sentiment
+   - Event timing correlation
+   - Insider trading timing detection
+
+5. **Unified Data Client**
+   - Aggregates all sources
+   - Cross-source validation
+   - Automatic deduplication
+   - Anomaly detection across sources
+
+See [docs/API_INTEGRATIONS.md](docs/API_INTEGRATIONS.md) for detailed API documentation.
 
 ## Detection Signals
 

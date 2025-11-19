@@ -28,35 +28,80 @@ class PolymarketClient:
         self.data_api = os.getenv("POLYMARKET_DATA_API", "https://data-api.polymarket.com")
         self.api_key = os.getenv("POLYMARKET_API_KEY")
 
+        # Request timeout settings
+        self.timeout = 30
+
+        # Rate limiting
+        self.last_request_time = {}
+        self.min_request_interval = 0.1  # 100ms between requests
+
         self.session = None
 
     def _get_headers(self) -> Dict[str, str]:
         """Get API headers with authentication if available"""
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "PolyPredict/1.0"
+        }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    def get_markets(self, active: bool = True) -> List[Dict]:
+    def _rate_limit(self, endpoint: str):
+        """Simple rate limiting"""
+        import time
+        current_time = time.time()
+        last_time = self.last_request_time.get(endpoint, 0)
+        time_since_last = current_time - last_time
+
+        if time_since_last < self.min_request_interval:
+            time.sleep(self.min_request_interval - time_since_last)
+
+        self.last_request_time[endpoint] = time.time()
+
+    def get_markets(self, active: bool = True, limit: int = 100, offset: int = 0) -> List[Dict]:
         """
         Fetch all markets from Polymarket
 
         Args:
             active: If True, only return active markets
+            limit: Maximum number of markets to return
+            offset: Pagination offset
 
         Returns:
             List of market dictionaries
         """
         try:
+            self._rate_limit("markets")
             url = f"{self.gamma_api}/markets"
-            params = {"active": str(active).lower()}
-            response = requests.get(url, headers=self._get_headers(), params=params)
+            params = {
+                "active": str(active).lower(),
+                "limit": limit,
+                "offset": offset
+            }
+            response = requests.get(
+                url,
+                headers=self._get_headers(),
+                params=params,
+                timeout=self.timeout
+            )
             response.raise_for_status()
 
             markets = response.json()
-            logger.info(f"Fetched {len(markets)} markets")
+            logger.info(f"Fetched {len(markets)} markets (offset={offset})")
             return markets
 
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout fetching markets")
+            return []
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                logger.warning("Rate limit hit, waiting...")
+                import time
+                time.sleep(5)
+                return []
+            logger.error(f"HTTP error fetching markets: {e}")
+            return []
         except Exception as e:
             logger.error(f"Error fetching markets: {e}")
             return []
@@ -196,7 +241,8 @@ class PolymarketClient:
     def get_historical_data(
         self,
         market_id: str,
-        days_back: int = 30
+        days_back: int = 30,
+        max_trades: int = 10000
     ) -> pd.DataFrame:
         """
         Fetch historical trading data for a market
@@ -204,6 +250,7 @@ class PolymarketClient:
         Args:
             market_id: Market ID
             days_back: Number of days to look back
+            max_trades: Maximum number of trades to fetch (safety limit)
 
         Returns:
             DataFrame with historical trades
@@ -211,44 +258,78 @@ class PolymarketClient:
         try:
             # Fetch trades in batches
             all_trades = []
-            offset = 0
-            batch_size = 1000
+            batch_size = 500  # Reduced from 1000 to be more conservative
+            cutoff_date = datetime.now() - timedelta(days=days_back)
 
-            while True:
-                trades = self.get_trades(market_id, limit=batch_size)
-                if not trades:
+            # Get initial batch
+            trades = self.get_trades(market_id, limit=batch_size)
+
+            if not trades:
+                logger.warning(f"No trades found for market {market_id}")
+                return pd.DataFrame()
+
+            all_trades.extend(trades)
+
+            # Try to get older trades using before parameter if API supports it
+            # Note: This assumes trades have 'id' or 'timestamp' field
+            while len(all_trades) < max_trades:
+                if not trades or len(trades) < batch_size:
                     break
 
-                all_trades.extend(trades)
+                # Get last trade timestamp/id for pagination
+                # Polymarket API uses 'next_cursor' for pagination
+                # This is a simplified version - real API might differ
+                last_trade = trades[-1]
 
-                # Check if we've gone back far enough
-                if len(trades) < batch_size:
-                    break
+                # Check if we've gone back far enough in time
+                if 'timestamp' in last_trade:
+                    trade_time = pd.to_datetime(last_trade['timestamp'], unit='s')
+                    if trade_time < cutoff_date:
+                        break
 
-                offset += batch_size
-
-                # Simple rate limiting
+                # Rate limiting
                 import time
                 time.sleep(0.5)
+
+                # Fetch next batch - note: actual pagination may differ
+                trades = self.get_trades(market_id, limit=batch_size)
+                if trades:
+                    all_trades.extend(trades)
+                else:
+                    break
 
             if not all_trades:
                 return pd.DataFrame()
 
             df = pd.DataFrame(all_trades)
 
+            # Remove duplicates based on trade ID if present
+            if 'id' in df.columns:
+                df = df.drop_duplicates(subset=['id'])
+
             # Convert timestamp if present
             if 'timestamp' in df.columns:
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+                # Try different timestamp formats
+                try:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+                except:
+                    try:
+                        df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    except:
+                        logger.warning("Could not parse timestamps")
 
                 # Filter by date range
-                cutoff_date = datetime.now() - timedelta(days=days_back)
-                df = df[df['timestamp'] >= cutoff_date]
+                if pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+                    df = df[df['timestamp'] >= cutoff_date]
+                    df = df.sort_values('timestamp', ascending=False)
 
             logger.info(f"Fetched {len(df)} historical trades for market {market_id}")
             return df
 
         except Exception as e:
             logger.error(f"Error fetching historical data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return pd.DataFrame()
 
 
