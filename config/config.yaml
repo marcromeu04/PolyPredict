@@ -1,0 +1,80 @@
+# PolyPredict Configuration
+
+# Polymarket API Settings
+api:
+  clob_url: "https://clob.polymarket.com"
+  gamma_url: "https://gamma-api.polymarket.com"
+  data_url: "https://data-api.polymarket.com"
+  rate_limit: 1000  # requests per hour
+  timeout: 30  # seconds
+
+# Detection Settings
+detection:
+  rule_based:
+    timing_window_minutes: 30
+    volume_spike_threshold: 3.0
+    clustering_similarity_threshold: 0.7
+    coordinated_trading_window_seconds: 300
+
+  thresholds:
+    high_risk: 0.8
+    medium_risk: 0.6
+    low_risk: 0.4
+
+# Machine Learning Settings
+ml:
+  lstm:
+    sequence_length: 50
+    hidden_size: 128
+    num_layers: 2
+    dropout: 0.3
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 50
+
+  random_forest:
+    n_estimators: 100
+    max_depth: 10
+    min_samples_split: 5
+
+  training:
+    test_size: 0.2
+    validation_size: 0.1
+    random_state: 42
+
+# Data Collection Settings
+data_collection:
+  lookback_period_days: 30
+  update_interval_seconds: 60
+  batch_size: 1000
+  cache_enabled: true
+  cache_ttl_minutes: 15
+
+# Alert Settings
+alerts:
+  enabled: true
+  channels:
+    - email
+    - slack
+  high_risk_immediate: true
+  batch_interval_minutes: 60
+
+# Storage Settings
+storage:
+  data_dir: "data"
+  models_dir: "data/models"
+  results_dir: "data/results"
+  logs_dir: "logs"
+
+  database:
+    enabled: false
+    type: "sqlite"
+    path: "data/polypredict.db"
+
+# Logging Settings
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/polypredict.log"
+  rotation: "daily"
+  retention_days: 30
