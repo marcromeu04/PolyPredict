@@ -7,6 +7,8 @@
 
 **PolyPredict** is a comprehensive insider trading detection system for Polymarket prediction markets. It combines rule-based heuristics with state-of-the-art machine learning models and integrates **5 major data sources** to identify suspicious trading patterns in real-time.
 
+> ⚠️ **REAL DATA ONLY**: PolyPredict works exclusively with real data from Polymarket and other APIs. No synthetic or mock data is used. See [docs/GETTING_REAL_DATA.md](docs/GETTING_REAL_DATA.md) for API configuration.
+
 ## Features
 
 ### 🔍 Detection Methods
@@ -94,13 +96,95 @@ See [docs/API_INTEGRATIONS.md](docs/API_INTEGRATIONS.md) for detailed API docume
 
 ## Installation
 
+### 1. Install Dependencies
+
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/PolyPredict.git
+cd PolyPredict
+
+# Install required packages
 pip install -r requirements.txt
 ```
 
+### 2. Configure API Keys (Optional but Recommended)
+
+PolyPredict works **without any API keys** for basic functionality (Polymarket API only), but adding API keys significantly improves data quality:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env and add your API keys
+nano .env
+```
+
+**Recommended APIs** (all have free tiers):
+- **The Graph**: 100k queries/month free - Get at [thegraph.com/studio](https://thegraph.com/studio/)
+- **PolygonScan**: Free tier - Get at [polygonscan.com/apis](https://polygonscan.com/apis)
+- **NewsAPI**: 100 requests/day free - Get at [newsapi.org](https://newsapi.org/)
+
+See [docs/GETTING_REAL_DATA.md](docs/GETTING_REAL_DATA.md) for detailed API setup guide.
+
+### 3. Verify Real Data Access
+
+```bash
+# Test that real data is accessible
+python test_real_data.py
+```
+
+This will verify connectivity to Polymarket and show which optional APIs are configured.
+
 ## Usage
 
-See `notebooks/insider_tracker_demo.ipynb` for full examples.
+### Quick Start (Command Line)
+
+```bash
+# Analyze the highest-volume market automatically
+python run_tracker.py
+
+# Analyze a specific market
+python run_tracker.py --market-id <market_id>
+
+# Get more historical data (14 days instead of 7)
+python run_tracker.py --days 14
+```
+
+### Interactive Analysis (Jupyter Notebook)
+
+```bash
+# Launch the interactive notebook
+jupyter notebook notebooks/insider_tracker_demo.ipynb
+```
+
+The notebook includes:
+- Real-time data fetching from all 5 sources
+- Interactive visualizations
+- Step-by-step detection analysis
+- Comprehensive dashboard
+- Result export functionality
+
+**Important**: The notebook will error if no real data is available for the selected market. This is by design - select a market with active trading.
+
+### Example Output
+
+```
+Fetching comprehensive data for market 0x123abc...
+  → Fetching from Polymarket API...
+  → Fetching trade history from Polymarket...
+  → Fetching from The Graph subgraph...
+  → Fetching on-chain data from Polygon...
+  → Fetching news and events...
+✓ Comprehensive data fetch complete
+
+Found 1,247 trades from 89 unique traders
+Detected 3 high-risk patterns:
+  - Timing anomaly: Large trade 8 min before event
+  - Coordinated trading: 4 wallets with similar patterns
+  - Volume spike: 300% above baseline
+```
+
+See [docs/GETTING_REAL_DATA.md](docs/GETTING_REAL_DATA.md) for troubleshooting if you encounter "No data found" errors.
 
 ## State of the Art
 

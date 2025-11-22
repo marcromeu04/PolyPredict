@@ -57,39 +57,59 @@ def run_tracker(
     markets = client.get_markets(active=True)
 
     if not markets:
-        logger.warning("No markets found. Using synthetic data for demonstration.")
-        market_id = "demo_market"
-        market_question = "Demo Market"
-        trades_df = create_synthetic_data(days_back)
-    else:
-        logger.info(f"Found {len(markets)} active markets")
+        logger.error("❌ ERROR: No markets found from Polymarket API")
+        logger.error("\nPossible reasons:")
+        logger.error("  1. API is currently unavailable")
+        logger.error("  2. Rate limit exceeded")
+        logger.error("  3. Network connectivity issues")
+        logger.error("\nPlease try again later or check your internet connection.")
+        sys.exit(1)
 
-        # Select market
-        if market_id is None:
-            # Get highest volume market
-            selected_market = sorted(
-                markets,
-                key=lambda x: x.get('volume', 0),
-                reverse=True
-            )[0]
-            market_id = selected_market.get('condition_id')
-            market_question = selected_market.get('question', 'Unknown')
+    logger.info(f"✓ Found {len(markets)} active markets")
+
+    # Select market
+    if market_id is None:
+        # Get highest volume market
+        selected_market = sorted(
+            markets,
+            key=lambda x: x.get('volume', 0),
+            reverse=True
+        )[0]
+        market_id = selected_market.get('condition_id')
+        market_question = selected_market.get('question', 'Unknown')
+        market_volume = selected_market.get('volume', 0)
+    else:
+        # Try to get market info
+        market_info = client.get_market_by_id(market_id)
+        if market_info:
+            market_question = market_info.get('question', market_id)
+            market_volume = market_info.get('volume', 0)
         else:
             market_question = market_id
+            market_volume = 0
 
-        logger.info(f"\nSelected Market:")
-        logger.info(f"  Question: {market_question}")
-        logger.info(f"  Market ID: {market_id}")
+    logger.info(f"\n📊 Selected Market:")
+    logger.info(f"  Question: {market_question}")
+    logger.info(f"  Market ID: {market_id}")
+    logger.info(f"  Volume: ${market_volume:,.2f}")
 
-        # Fetch trading data
-        logger.info(f"\nFetching {days_back} days of trading data...")
-        trades_df = client.get_historical_data(market_id, days_back)
+    # Fetch trading data
+    logger.info(f"\n📥 Fetching {days_back} days of trading data...")
+    trades_df = client.get_historical_data(market_id, days_back)
 
-        if trades_df.empty:
-            logger.warning("No real data available. Using synthetic data.")
-            trades_df = create_synthetic_data(days_back)
+    if trades_df.empty:
+        logger.error(f"\n❌ ERROR: No trading data found for market {market_id}")
+        logger.error("\nPossible reasons:")
+        logger.error("  1. Market has no trades yet")
+        logger.error("  2. Market ID is incorrect")
+        logger.error("  3. API returned no data")
+        logger.error("\nTry selecting a different market with:")
+        logger.error("  python run_tracker.py --market-id <different_market_id>")
+        logger.error("\nOr let the system auto-select:")
+        logger.error("  python run_tracker.py")
+        sys.exit(1)
 
-    logger.info(f"Loaded {len(trades_df)} trades")
+    logger.info(f"✓ Loaded {len(trades_df)} real trades from Polymarket")
 
     # Preprocess data
     logger.info("\nPreprocessing data...")
@@ -189,35 +209,6 @@ def run_tracker(
     logger.info("\n" + "="*70)
     logger.info("✓ TRACKING COMPLETE")
     logger.info("="*70)
-
-
-def create_synthetic_data(days_back: int = 7) -> pd.DataFrame:
-    """Create synthetic trading data for demonstration"""
-    import numpy as np
-
-    n_trades = 500
-    base_time = datetime.now() - timedelta(days=days_back)
-
-    trades_df = pd.DataFrame({
-        'timestamp': [base_time + timedelta(minutes=i*30) for i in range(n_trades)],
-        'maker': [f'0x{i%50:040x}' for i in range(n_trades)],
-        'size': np.random.exponential(100, n_trades) * np.random.uniform(0.5, 2, n_trades),
-        'price': np.random.uniform(0.3, 0.7, n_trades),
-        'side': np.random.choice(['buy', 'sell'], n_trades),
-        'market': 'synthetic_market'
-    })
-
-    # Add suspicious patterns
-    event_time = trades_df['timestamp'].max() - timedelta(hours=2)
-    suspicious_window = (trades_df['timestamp'] >= event_time - timedelta(minutes=20)) & \
-                       (trades_df['timestamp'] < event_time)
-
-    insider_addresses = [f'0xINSIDER{i:037x}' for i in range(3)]
-    for idx in trades_df[suspicious_window].index[:10]:
-        trades_df.loc[idx, 'size'] = np.random.uniform(500, 1000)
-        trades_df.loc[idx, 'maker'] = np.random.choice(insider_addresses)
-
-    return trades_df
 
 
 def main():
